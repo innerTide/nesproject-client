@@ -6,7 +6,7 @@ endif
 
 CONTIKI = ../..
 
-CONTIKI_PROJECT = nes-channel-selection-coordinator
+CONTIKI_PROJECT = nes-channel-selection-client
 
 all: $(CONTIKI_PROJECT)
 
@@ -19,5 +19,7 @@ viewrssi3d: ViewRSSI3D.class
 viewrssi: ViewRSSI.class
 	make login | java ViewRSSI
 
+	
+CONTIKI_WITH_RIME = 1
 include $(CONTIKI)/Makefile.include
 
