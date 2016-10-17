@@ -9,8 +9,8 @@
  *         Client Source Code for NES project
  * \author
  *         Joakim Eriksson, joakime@sics.se
- *          Adam Dunkels, adam@sics.se
- * 			Yuefeng Wu, y.wu.5@student.tue.nl
+ *          Adam Dunkels, adam@sics.se 
+ *          Yuefeng Wu, y.wu.5@student.tue.nl
  */
 
 #include "contiki.h"
@@ -38,6 +38,7 @@ int receivedChannel = 26;
 unsigned int currentCounter = 0;
 char instructionBuff [6];
 int coordinatorAddr[2];
+unsigned char broadcastEnabled = 1;
 
 /*---------------------------------------------------------------------------*/
 /* This assumes that the CC2420 is always on and "stable" */
@@ -60,6 +61,8 @@ static void broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
 				coordinatorAddr[0] = from -> u8[0];
 				coordinatorAddr[1] = from -> u8[1];
 				char *repostedInst = receivedInst;
+				
+				/*Replace the first char in initial with "R" to indicate the reposted inst.*/
 				*repostedInst = 'R';
 				packetbuf_copyfrom(repostedInst, 6);
 				printf ("Channel is reset to CH=%d, instruction : %s is being reposted!\n",receivedChannel,repostedInst);
@@ -76,9 +79,17 @@ static void broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
 			currentCounter=receivedCounter;
 		}
 	}
-	else{
-		printf ("Invalid inst. received, discard!\n");
+	else if (*receivedInst == 'S'){
+            broadcastEnabled = 0;
+		printf ("Broadcast stops due to inst.: \"%s\" from coordinator\n", receivedInst);
 	}
+	else if (*receivedInst == 'B'){
+            broadcastEnabled = 1;
+            printf ("Broadcast restarts due to inst.: \"%s\" from coordinator\n", receivedInst);
+        }
+        else{
+            printf ("Invalid instruction, Discard!\n");
+        }
 }
 static const struct broadcast_callbacks broadcast_call = {broadcast_recv};
 static struct broadcast_conn broadcast;
@@ -95,13 +106,20 @@ PROCESS_THREAD(client_listener, ev, data)
 	broadcast_open(&broadcast, 129, &broadcast_call);
 	
 	NETSTACK_MAC.off(0);
+	
 	cc2420_on();
 	
 	while(1) {
-		etimer_set (&etScan, CLOCK_SECOND*15);
+		etimer_set (&etScan, CLOCK_SECOND*3);
 		PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&etScan));
+		
+		/*Return to initial channel*/
 		cc2420_set_channel (currentChannel);
-		broadcast_send(&broadcast);
+		if (broadcastEnabled){
+                    broadcast_send(&broadcast);
+                }
+		
+		/*Change to better channel*/
 		cc2420_set_channel (receivedChannel);
 		currentChannel=receivedChannel;
 		
