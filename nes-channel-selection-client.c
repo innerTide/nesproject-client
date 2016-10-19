@@ -78,6 +78,7 @@ static void broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
 			}
 			currentCounter=receivedCounter;
 		}
+		broadcastEnabled = 1;
 	}
 	else if (*receivedInst == 'S'){
             broadcastEnabled = 0;
@@ -88,7 +89,7 @@ static void broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
             printf ("Broadcast restarts due to inst.: \"%s\" from coordinator\n", receivedInst);
         }
         else{
-            printf ("Invalid instruction, Discard!\n");
+            printf ("Invalid instruction : %s, Discard!\n",receivedInst);
         }
 }
 static const struct broadcast_callbacks broadcast_call = {broadcast_recv};
@@ -110,18 +111,19 @@ PROCESS_THREAD(client_listener, ev, data)
 	cc2420_on();
 	
 	while(1) {
-		etimer_set (&etScan, CLOCK_SECOND*3);
+		etimer_set (&etScan, CLOCK_SECOND*1);
 		PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&etScan));
 		
 		/*Return to initial channel*/
 		cc2420_set_channel (currentChannel);
 		if (broadcastEnabled){
                     broadcast_send(&broadcast);
+                    /*Change to better channel*/
+                    cc2420_set_channel (receivedChannel);
+                    currentChannel=receivedChannel;
                 }
 		
-		/*Change to better channel*/
-		cc2420_set_channel (receivedChannel);
-		currentChannel=receivedChannel;
+		
 		
 	}
 	
