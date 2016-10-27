@@ -38,6 +38,7 @@ int receivedChannel = 26;
 unsigned int currentCounter = 0;
 char instructionBuff [6];
 int coordinatorAddr[2];
+char* repostedInst;
 unsigned char broadcastEnabled = 1;
 
 /*---------------------------------------------------------------------------*/
@@ -60,11 +61,11 @@ static void broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
 			if (receivedCounter>currentCounter || receivedCounter == 0){
 				coordinatorAddr[0] = from -> u8[0];
 				coordinatorAddr[1] = from -> u8[1];
-				char *repostedInst = receivedInst;
+				repostedInst = receivedInst;
 				
 				/*Replace the first char in initial with "R" to indicate the reposted inst.*/
 				*repostedInst = 'R';
-				packetbuf_copyfrom(repostedInst, 6);
+				
 				printf ("Channel is reset to CH=%d, instruction : %s is being reposted!\n",receivedChannel,repostedInst);
 				currentCounter=receivedCounter;
 			}
@@ -97,8 +98,9 @@ static struct broadcast_conn broadcast;
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(client_listener, ev, data)
 {
-	static struct etimer etScan;
-	
+
+    static struct etimer etScan;
+    
 	PROCESS_EXITHANDLER(broadcast_close(&broadcast);)
 	
 	PROCESS_BEGIN();
@@ -111,16 +113,22 @@ PROCESS_THREAD(client_listener, ev, data)
 	cc2420_on();
 	
 	while(1) {
-		etimer_set (&etScan, CLOCK_SECOND*1);
-		PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&etScan));
-		
+            
+            etimer_set (&etScan, 700);
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&etScan));
+            
 		/*Return to initial channel*/
 		cc2420_set_channel (currentChannel);
 		if (broadcastEnabled){
-                    broadcast_send(&broadcast);
+                    unsigned char i;
+                    for (i=0 ;i<3;i++){
+                        packetbuf_copyfrom(repostedInst, 6);
+                        broadcast_send(&broadcast);
+                    }
                     /*Change to better channel*/
                     cc2420_set_channel (receivedChannel);
                     currentChannel=receivedChannel;
+                    broadcastEnabled = 0;
                 }
 		
 		
